@@ -14,4 +14,4 @@ from tweet_helper import TweetHelper
 
 if __name__ == '__main__':
         h = TweetHelper()
-        # h.copy_from_raw()
+        h.copy_from_raw()
