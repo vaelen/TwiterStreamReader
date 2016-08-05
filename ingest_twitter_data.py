@@ -31,7 +31,7 @@ if __name__ == '__main__':
         config.read('twitter.cfg')
         
         if len(sys.argv) < 2 :
-                print >> sys.stderr, "Please provide at least one topic."
+                print >> sys.stderr, "Please provide at least one topic. Use 'sample' for a random sample."
                 exit(1)
 
         topics = sys.argv[1:]
@@ -48,7 +48,11 @@ if __name__ == '__main__':
         auth.set_access_token(access_token, access_token_secret)
         stream = Stream(auth, l)
 
-        print >> sys.stderr, "Tracking topics: ", topics
         
-        stream.filter(track=topics)
+        if topics[0].lower() == "sample":
+                print >> sys.stderr, "Looking at a random sample of tweets."
+                stream.sample()
+        else:
+                print >> sys.stderr, "Tracking tweets with these topics: ", topics
+                stream.filter(track=topics)
 
