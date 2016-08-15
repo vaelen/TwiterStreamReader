@@ -17,25 +17,102 @@
 # You should have received a copy of the GNU General Public License
 # along with TwitterStreamReader.  If not, see <http://www.gnu.org/licenses/>.
 
-# Import the necessary methods from tweepy library
+import os
+import sys
+import json
+import argparse
+import dateutil.parser
+
+from pymongo import MongoClient
+from configparser import RawConfigParser
 from tweepy.streaming import StreamListener
 from tweepy import OAuthHandler
 from tweepy import Stream
 
-import os
-import sys
-import json
+def log(*messages):
+  print(*messages, file=sys.stderr)
 
-from pymongo import MongoClient
-from ingest_listener import IngestListener
-from watch_listener import WatchListener
-from tweet_helper import TweetHelper
-from util import log
+class TweetHelper:
+    def __init__(self):
+        self.client = MongoClient()
+        self.db = self.client.twitter
+        self.tweets = self.db.tweets
+        self.raw = self.db.raw
 
-from configparser import RawConfigParser
+    def copy_from_raw(self):
+        self.log("Dropping Tweet Collection")
+        self.tweets.drop()
+        self.log("Creating Tweet Collection From Raw Collection")
+        cursor = self.raw.find({})
+        i = 0
+        for tweet in cursor:
+            self.insert_tweet(tweet)
+            i = i + 1
+            if i % 100 == 0: sys.stderr.write("#")
 
-import argparse
+    def generate_doc(self, tweet):
+        doc = {}
+        doc["id"] = tweet["id"]
+        doc["user"] = {
+            "id": tweet["user"]["id"],
+            "name": tweet["user"]["name"],
+            "screen_name": tweet["user"]["screen_name"],
+            "description": tweet["user"]["description"],
+            "lang": tweet["user"]["lang"],
+            "location": tweet["user"]["location"],
+            "created_at": dateutil.parser.parse(tweet["user"]["created_at"])
+        }
+        doc["place"] = tweet["place"]
+        doc["text"] = tweet["text"]
+        doc["lang"] = tweet["lang"]
+        doc["created_at"] = dateutil.parser.parse(tweet["created_at"])
+        if "retweeted_status" in tweet:
+            doc["retweeted_status"] = self.generate_doc(tweet["retweeted_status"])
+        if "quoted_status" in tweet:
+            doc["quoted_status"] = self.generate_doc(tweet["quoted_status"])
+        return doc
+                
+    def insert_tweet(self, tweet):
+        if not "user" in tweet: return True
+        # Insert data
+        doc = self.generate_doc(tweet)
+        self.tweets.insert(doc)
+        return True
 
+    def parse_json(self, data):
+        tweet = json.loads(data)
+        if not "user" in tweet: return True
+        sys.stderr.write(".")
+        self.raw.insert(tweet)
+        self.insert_tweet(tweet)
+  
+# This is a listener that stores tweets in MongoDB
+class IngestListener(StreamListener):
+  def __init__(self):
+    self.tweet_helper = TweetHelper()
+
+  def on_data(self, data):
+    self.tweet_helper.parse_json(data)
+    return True
+
+  def on_error(self, status):
+    log("Error: ", status)
+
+# This is a listener that just prints received tweets to stdout.
+class WatchListener(StreamListener):
+  def on_data(self, data):
+    tweet = json.loads(data)
+    if not "user" in tweet: return True
+    if not "text" in tweet: return True
+    print("User: ", tweet["user"]["name"])
+    print("Description: ", tweet["user"]["description"])
+    print("Tweet: ", tweet["text"])
+    print("------------------------------------------------------------")
+    return True
+
+  def on_error(self, status):
+    log("Error: ", status)
+    
 def parse_arguments():
   parser = argparse.ArgumentParser(description='Reads a stream of tweets from Twitter and stores them in MongoDB.',
                                    epilog='By default a random sampling of tweets will be collected and stored in two collections: "raw" and "tweets".  '
