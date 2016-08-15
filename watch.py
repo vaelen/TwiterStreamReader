@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 # This file is part of TwitterStreamReader.
@@ -25,16 +25,19 @@ from tweepy import Stream
 import sys
 import json
 
-from pymongo import MongoClient
-from tweet_helper import TweetHelper
+reload(sys)  
+sys.setdefaultencoding('utf8')
 
 # This is a basic listener that just prints received tweets to stdout.
 class StdOutListener(StreamListener):
-        def __init__(self):
-                self.tweet_helper = TweetHelper()
-                
         def on_data(self, data):
-                self.tweet_helper.parse_json(data)
+                tweet = json.loads(data)
+                if not "user" in tweet: return True
+                if not "text" in tweet: return True
+                print "User: ", tweet["user"]["name"]
+                print "Description: ", tweet["user"]["description"]
+                print "Tweet: ", tweet["text"]
+                print "------------------------------------------------------------"
                 return True
 
         def on_error(self, status):
@@ -64,8 +67,7 @@ if __name__ == '__main__':
         auth = OAuthHandler(consumer_key, consumer_secret)
         auth.set_access_token(access_token, access_token_secret)
         stream = Stream(auth, l)
-
-        
+˚        
         if topics[0].lower() == "sample":
                 print >> sys.stderr, "Looking at a random sample of tweets."
                 stream.sample()
