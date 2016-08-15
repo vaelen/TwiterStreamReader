@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
+# -*- coding: utf-8; python-indent-guess-indent-offset: nil; python-indent-offset: 2; -*-
 
 # This file is part of TwitterStreamReader.
 # Copyright 2016 Andrew Young
@@ -19,16 +19,21 @@
 
 # Import the necessary methods from tweepy library
 from tweepy.streaming import StreamListener
-from tweepy import OAuthHandler
-from tweepy import Stream
 
 import sys
 import json
 
-from pymongo import MongoClient
-
 from tweet_helper import TweetHelper
+from util import log
 
-if __name__ == '__main__':
-        h = TweetHelper()
-        h.copy_from_raw()
+# This is a basic listener that just prints received tweets to stdout.
+class IngestListener(StreamListener):
+  def __init__(self):
+    self.tweet_helper = TweetHelper()
+
+  def on_data(self, data):
+    self.tweet_helper.parse_json(data)
+    return True
+
+  def on_error(self, status):
+    log("Error: ", status)
