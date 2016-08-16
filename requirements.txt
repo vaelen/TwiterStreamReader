@@ -1,0 +1,8 @@
+# Required packages.
+# To install these, simply run:
+#    pip3 install -r requirements.txt
+
+pymongo
+tweepy
+progressbar2
+python-dateutil
