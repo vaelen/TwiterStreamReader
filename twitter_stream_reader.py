@@ -34,8 +34,8 @@ def log(*messages):
   print(*messages, file=sys.stderr)
 
 class TweetHelper:
-    def __init__(self):
-        self.client = MongoClient()
+    def __init__(self, url):
+        self.client = MongoClient(url)
         self.db = self.client.twitter
         self.tweets = self.db.tweets
         self.raw = self.db.raw
@@ -100,9 +100,9 @@ class BaseListener(StreamListener):
       
 # This is a listener that stores tweets in MongoDB
 class IngestListener(BaseListener):
-  def __init__(self, total):
+  def __init__(self, total, url):
     super().__init__(total)
-    self.tweet_helper = TweetHelper()
+    self.tweet_helper = TweetHelper(url)
     if total < 1:
       self.bar = progressbar.ProgressBar(max_value=progressbar.UnknownLength,redirect_stderr=True)
     else:
@@ -147,6 +147,7 @@ def parse_arguments():
   parser.add_argument('-w', '--watch', action='store_true', help='Watch stream. This will print tweets to standard out instead of storing them in MongoDB.')
   parser.add_argument('-c', '--convert', action='store_true', help='Convert tweets. This will re-process all tweets in the raw collection instead of reading new tweets.')
   parser.add_argument('-f', '--config', metavar='FILE', default='twitter.cfg', help='Config file. Default: twitter.cfg')
+  parser.add_argument('-u', '--url', metavar='URL', default='mongodb://localhost:27017/test', help='MongoDB server URL.  Default: mongodb://localhost:27017/test')
   return parser.parse_args()
   
 def main():
@@ -154,7 +155,7 @@ def main():
   options = parse_arguments()
 
   if options.convert:
-    h = TweetHelper()
+    h = TweetHelper(options.url)
     h.copy_from_raw()
   else:
     if not os.path.isfile(options.config):
@@ -176,7 +177,7 @@ def main():
       listener = WatchListener(options.max)
       log("Watching instead of storing tweets.")
     else:
-      listener = IngestListener(options.max)
+      listener = IngestListener(options.max, options.url)
     
     # This handles Twitter authetification and the connection to Twitter Streaming API
     auth = OAuthHandler(consumer_key, consumer_secret)
