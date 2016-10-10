@@ -36,7 +36,7 @@ def log(*messages):
 class TweetHelper:
     def __init__(self, url):
         self.client = MongoClient(url)
-        self.db = self.client.twitter
+        self.db = self.client.get_default_database()
         self.tweets = self.db.tweets
         self.raw = self.db.raw
 
@@ -51,7 +51,6 @@ class TweetHelper:
           for tweet in cursor:
             self.insert_tweet(tweet)
             i = i + 1
-            # if i % 100 == 0: sys.stderr.write("#")
             bar.update(i)
 
     def generate_doc(self, tweet):
